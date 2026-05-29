@@ -9,15 +9,21 @@ RUN apk add --no-cache maven
 COPY pom.xml .
 COPY src ./src
 
-# Build application
-RUN mvn clean package -DskipTests
+# Build application with verbose output
+RUN mvn clean package -DskipTests -X
+
+# List the target directory to verify jar creation
+RUN ls -la /app/target/
 
 # Runtime Stage
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Copy jar from build stage
-COPY --from=build /app/target/*.jar app.jar
+# Copy the executable jar from build stage
+COPY --from=build /app/target/inventory.jar app.jar
+
+# Verify the jar file
+RUN jar -tf app.jar | grep -i manifest || echo "No manifest found"
 
 # Expose port
 EXPOSE 8080
