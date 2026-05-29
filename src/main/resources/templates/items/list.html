@@ -1,21 +1,175 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" th:replace="layout :: body">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" layout:decorate="~{layout}">
+<head>
+    <title>Gegenstände - Physikraum Inventory</title>
+</head>
 <body>
-<h2>Gegenstände</h2>
-<a th:href="@{/items/create}">Neu</a>
-<table>
-    <tr><th>Name</th><th>Kategorie</th><th>Menge</th><th>Aktionen</th></tr>
-    <tr th:each="item : ${items}">
-        <td th:text="${item.name}"></td>
-        <td th:text="${item.category != null ? item.category.name : '—'}"></td>
-        <td th:text="${item.quantity}"></td>
-        <td>
-            <a th:href="@{'/items/' + ${item.id} + '/edit'}">Bearbeiten</a>
-            <form th:action="@{'/items/' + ${item.id} + '/delete'}" method="post" style="display:inline">
-                <button type="submit">Löschen</button>
+    <div layout:fragment="content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-box"></i> Gegenstände</h1>
+            <a th:href="@{/items/new}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Neuer Gegenstand
+            </a>
+        </div>
+
+        <!-- Search and Filter -->
+        <div class="filter-section">
+            <form th:action="@{/items}" method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="search" class="form-label">Suche</label>
+                    <input type="text" class="form-control" id="search" name="search" th:value="${search}" placeholder="Name suchen...">
+                </div>
+                <div class="col-md-3">
+                    <label for="categoryFilter" class="form-label">Kategorie</label>
+                    <select class="form-select" id="categoryFilter" name="categoryId">
+                        <option value="">Alle Kategorien</option>
+                        <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}" th:selected="${cat.id == categoryId}">Category</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="locationFilter" class="form-label">Ort</label>
+                    <select class="form-select" id="locationFilter" name="location">
+                        <option value="">Alle Orte</option>
+                        <option th:each="loc : ${locations}" th:value="${loc}" th:text="${loc}" th:selected="${loc == location}">Location</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-secondary w-100">
+                        <i class="bi bi-search"></i> Filtern
+                    </button>
+                </div>
             </form>
-        </td>
-    </tr>
-</table>
+        </div>
+
+        <!-- Items Table -->
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Kategorie</th>
+                                <th>Unterkategorie</th>
+                                <th>Anzahl</th>
+                                <th>Ort</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="item : ${items}">
+                                <td th:text="${item.name}">Item Name</td>
+                                <td>
+                                    <span class="badge bg-secondary" th:text="${item.category.name}">Category</span>
+                                </td>
+                                <td>
+                                    <span th:if="${item.subcategory}" class="badge bg-info" th:text="${item.subcategory.name}">Subcategory</span>
+                                    <span th:unless="${item.subcategory}" class="text-muted">-</span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger btn-quantity" th:data-item-id="${item.id}" data-action="decrease">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                    <span class="quantity-display mx-2" th:id="'quantity-' + ${item.id}" th:classappend="${item.quantity == 0} ? 'quantity-zero'" th:text="${item.quantity}">0</span>
+                                    <button class="btn btn-sm btn-outline-success btn-quantity" th:data-item-id="${item.id}" data-action="increase">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </td>
+                                <td>
+                                    <span class="badge badge-location bg-light text-dark" th:text="${item.location}">Location</span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-info btn-sm-icon" data-bs-toggle="modal" th:data-bs-target="'#infoModal' + ${item.id}">
+                                        <i class="bi bi-info-circle"></i>
+                                    </button>
+                                    <a th:href="@{/items/{id}/edit(id=${item.id})}" class="btn btn-sm btn-warning btn-sm-icon">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button sec:authorize="hasRole('ADMIN')" class="btn btn-sm btn-danger btn-sm-icon" data-bs-toggle="modal" th:data-bs-target="'#deleteModal' + ${item.id}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(items)}">
+                                <td colspan="6" class="text-center text-muted">Keine Gegenstände gefunden</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Modals -->
+        <div th:each="item : ${items}">
+            <div class="modal fade" th:id="'infoModal' + ${item.id}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" th:text="${item.name}">Item Name</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <dl class="row">
+                                <dt class="col-sm-4">Kategorie:</dt>
+                                <dd class="col-sm-8"><span class="badge bg-secondary" th:text="${item.category.name}">Category</span></dd>
+                                
+                                <dt class="col-sm-4">Unterkategorie:</dt>
+                                <dd class="col-sm-8">
+                                    <span th:if="${item.subcategory}" class="badge bg-info" th:text="${item.subcategory.name}">Subcategory</span>
+                                    <span th:unless="${item.subcategory}" class="text-muted">Keine</span>
+                                </dd>
+                                
+                                <dt class="col-sm-4">Anzahl:</dt>
+                                <dd class="col-sm-8">
+                                    <span class="quantity-display" th:classappend="${item.quantity == 0} ? 'quantity-zero'" th:text="${item.quantity}">0</span>
+                                </dd>
+                                
+                                <dt class="col-sm-4">Ort:</dt>
+                                <dd class="col-sm-8"><span class="badge badge-location bg-light text-dark" th:text="${item.location}">Location</span></dd>
+                                
+                                <dt class="col-sm-4">Beschreibung:</dt>
+                                <dd class="col-sm-8" th:text="${item.description} ?: 'Keine Beschreibung'">Description</dd>
+                                
+                                <dt class="col-sm-4">Erstellt:</dt>
+                                <dd class="col-sm-8" th:text="${#temporals.format(item.createdAt, 'dd.MM.yyyy HH:mm')}">Date</dd>
+                            </dl>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                            <a th:href="@{/items/{id}/edit(id=${item.id})}" class="btn btn-primary">
+                                <i class="bi bi-pencil"></i> Bearbeiten
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Modals (Admin only) -->
+        <div th:each="item : ${items}" sec:authorize="hasRole('ADMIN')">
+            <div class="modal fade" th:id="'deleteModal' + ${item.id}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">Gegenstand löschen</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Möchten Sie den Gegenstand <strong th:text="${item.name}">Item</strong> wirklich löschen?</p>
+                            <p class="text-danger"><i class="bi bi-exclamation-triangle"></i> Diese Aktion kann nicht rückgängig gemacht werden!</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                            <form th:action="@{/items/{id}/delete(id=${item.id})}" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="bi bi-trash"></i> Löschen
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
